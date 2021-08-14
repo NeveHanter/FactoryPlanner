@@ -1,6 +1,8 @@
 -- The loader contains the code that runs on_load, pre-caching some data structures that are needed later
 loader = {}
 
+inspect = require("data.inspect")
+
 -- ** LOCAL UTIL **
 -- Returns a list of recipe groups in their proper order
 local function ordered_recipe_groups()
@@ -38,6 +40,16 @@ local function recipe_map_from(item_type)
     for _, recipe in pairs(global.all_recipes.recipes) do
         for _, item in ipairs(recipe[item_type]) do
             map[item.type] = map[item.type] or {}
+
+            if item_type == "products" and item.temperature ~= nil then
+                -- Register both as itself and as a base product name
+                -- TODO: Register as all in the appropriate temperature ranges
+                local name = item.name:gsub("-" .. item.temperature, "")
+
+                map[item.type][name] = map[item.type][name] or {}
+                map[item.type][name][recipe.id] = true
+            end
+
             map[item.type][item.name] = map[item.type][item.name] or {}
             map[item.type][item.name][recipe.id] = true
         end
@@ -184,6 +196,28 @@ local function prototype_attributes()
 end
 
 
+local function temperature_variants()
+    local map = {}
+
+    if not global.all_recipes.recipes then return end
+    for _, recipe in pairs(global.all_recipes.recipes) do
+        for _, item in ipairs(recipe["products"]) do
+            if item.temperature ~= nil then
+                -- TODO: Register as all in the appropriate temperature ranges
+                local name = item.name:gsub("-" .. item.temperature, "")
+
+                map[name] = map[name] or {}
+                if map[name][item.name] == nil then
+                    table.insert(map[name], item.name)
+                end
+            end
+        end
+    end
+
+    return map
+end
+
+
 -- ** TOP LEVEL **
 -- Register on_nth_tick events and create some lua-global tables for convenience and performance
 function loader.run()
@@ -194,6 +228,7 @@ function loader.run()
         produce = recipe_map_from("products"),
         consume = recipe_map_from("ingredients")
     }
+    TEMPERATURE_VARIANTS = temperature_variants()
 
     SORTED_ITEMS = sorted_items()
     IDENTIFIER_ITEM_MAP = identifier_item_map()

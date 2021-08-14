@@ -96,18 +96,26 @@ local function update_line(line_data, aggregate)
     -- Determine ingredients
     local Ingredient = structures.class.init()
     for _, ingredient in pairs(recipe_proto.ingredients) do
+        local ingredient_variant = line_data.ingredient_variants[ingredient.name]
+        
+        local real_ingredient = ingredient
+        if ingredient_variant ~= nil then
+            real_ingredient = util.table.deepcopy(ingredient)
+            real_ingredient.name = ingredient_variant.name
+        end
+
         -- If productivity is to be ignored, un-apply it by applying the product-productivity to an ingredient,
         -- effectively reversing the effect (this is way simpler than doing it properly)
-        local ingredient_amount = (ingredient.ignore_productivity) and
-          determine_amount_with_productivity(ingredient) or (ingredient.amount * production_ratio)
+        local ingredient_amount = (real_ingredient.ignore_productivity) and
+          determine_amount_with_productivity(real_ingredient) or (real_ingredient.amount * production_ratio)
 
-        structures.class.add(Ingredient, ingredient, ingredient_amount)
+        structures.class.add(Ingredient, real_ingredient, ingredient_amount)
 
         -- Reduce the line-byproducts and -ingredients so only the net amounts remain
-        local byproduct_amount = Byproduct[ingredient.type][ingredient.name]
+        local byproduct_amount = Byproduct[real_ingredient.type][real_ingredient.name]
         if byproduct_amount ~= nil then
-            structures.class.subtract(Byproduct, ingredient, ingredient_amount)
-            structures.class.subtract(Ingredient, ingredient, byproduct_amount)
+            structures.class.subtract(Byproduct, real_ingredient, ingredient_amount)
+            structures.class.subtract(Ingredient, real_ingredient, byproduct_amount)
         end
     end
     structures.class.balance_items(Ingredient, aggregate, "Byproduct", "Product")

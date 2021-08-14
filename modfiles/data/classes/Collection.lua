@@ -1,5 +1,6 @@
 -- 'Class' representing a list of objects/datasets with some useful methods
 -- (An object only becomes a dataset once it is added to the collection)
+---@class Collection
 Collection = {}
 
 function Collection.init(object_class)

@@ -471,6 +471,26 @@ local function compile_fuel_chooser_buttons(player, line, applicable_prototypes)
     return button_definitions
 end
 
+local function compile_temperature_variant_chooser_buttons(player, line, current_fluid_proto, applicable_prototypes)
+    local button_definitions = {}
+
+    for _, fluid_proto in ipairs(applicable_prototypes) do
+        local type_id = global.all_items.map[fluid_proto.type]
+        local definition = {
+            element_id = type_id .. "_" .. fluid_proto.id,
+            sprite = fluid_proto.sprite,
+            button_number = nil,
+            localised_name = fluid_proto.localised_name,
+            amount_line = "",
+            --tooltip_appendage = data_util.get_attributes("fuels", fluid_proto),
+            selected = fluid_proto == current_fluid_proto
+        }
+        table.insert(button_definitions, definition)
+    end
+
+    return button_definitions
+end
+
 function GENERIC_HANDLERS.apply_fuel_choice(player, new_fuel_id_string, _)
     local ui_state = data_util.get("ui_state", player)
 
@@ -478,6 +498,17 @@ function GENERIC_HANDLERS.apply_fuel_choice(player, new_fuel_id_string, _)
     local new_fuel_proto = global.all_fuels.categories[split_string[1]].fuels[split_string[2]]
 
     ui_state.modal_data.object.proto = new_fuel_proto
+    calculation.update(player, ui_state.context.subfactory)
+    main_dialog.refresh(player, "subfactory")
+end
+
+function GENERIC_HANDLERS.apply_temperature_variant_choice(player, new_temperature_variant_id_string, _)
+    local ui_state = data_util.get("ui_state", player)
+
+    local split_string = split_string(new_temperature_variant_id_string, "_")
+    local new_variant_proto = global.all_items.types[split_string[1]].items[split_string[2]]
+
+    ui_state.modal_data.ingredient_variants[ui_state.modal_data.ingredient_name] = new_variant_proto
     calculation.update(player, ui_state.context.subfactory)
     main_dialog.refresh(player, "subfactory")
 end
@@ -516,6 +547,69 @@ local function handle_fuel_click(player, tags, metadata)
             click_handler_name = "apply_fuel_choice",
             button_definitions = compile_fuel_chooser_buttons(player, line, applicable_prototypes),
             object = fuel
+        }
+        modal_dialog.enter(player, {type="chooser", modal_data=modal_data})
+    end
+end
+
+local function handle_fluid_temperature_variant_click(player, tags, metadata)
+    local context = data_util.get("context", player)
+    local line = Floor.get(context.floor, "Line", tags.line_id)
+    local proto = tags.proto
+    local recipe = line.recipe
+
+    local ingredient_variants = line.ingredient_variants
+    local variant_proto = ingredient_variants[proto.name]
+
+    if metadata.alt then
+        data_util.execute_alt_action(player, "show_item", {item=variant_proto, click=metadata.click})
+
+    elseif not ui_util.check_archive_status(player) then
+        return
+
+    elseif metadata.click == "left" then
+        modal_dialog.enter(player, {type="recipe", modal_data={product_proto=(variant_proto or proto), production_type="produce",
+          add_after_position=((metadata.shift) and line.gui_position or nil)}})
+
+    elseif metadata.click == "right" then
+        local applicable_prototypes = {}
+        for _, temperature_variant_name in ipairs(TEMPERATURE_VARIANTS[proto.name]) do
+            local fluid_type_id = global.all_items.map[proto.type]
+            local fluid_type = global.all_items.types[fluid_type_id]
+            local fluid_proto = fluid_type.items[fluid_type.map[temperature_variant_name]]
+
+            --log("=========")
+            --log(inspect(recipe, {depth=4}))
+            --log(inspect(proto, {depth=1}))
+            --log(inspect(fluid_proto, {depth=1}))
+
+            for _, ingredient in ipairs(recipe.proto.ingredients) do
+                if ingredient.name == proto.name then
+                    if ingredient.temperature then
+                        if ingredient.temperature ~= fluid_proto.temperature then goto skip_variant end
+                    else
+                        if ingredient.minimum_temperature then
+                            if fluid_proto.temperature < ingredient.minimum_temperature then goto skip_variant end
+                        end
+                        if ingredient.maximum_temperature then
+                            if fluid_proto.temperature > ingredient.maximum_temperature then goto skip_variant end
+                        end
+                    end
+                end
+            end
+
+            table.insert(applicable_prototypes, fluid_proto)
+
+            ::skip_variant::
+        end
+
+        local modal_data = {
+            title = {"fp.pl_temperature_variant", 1},
+            text = {"fp.chooser_temperature_variant", (variant_proto or proto).localised_name},
+            click_handler_name = "apply_temperature_variant_choice",
+            button_definitions = compile_temperature_variant_chooser_buttons(player, line, proto, applicable_prototypes),
+            ingredient_variants = ingredient_variants,
+            ingredient_name = proto.name
         }
         modal_dialog.enter(player, {type="chooser", modal_data=modal_data})
     end
@@ -571,6 +665,10 @@ production_handler.gui_events = {
         {
             name = "act_on_line_fuel",
             handler = handle_fuel_click
+        },
+        {
+            name = "act_on_line_fluid_temperature_variant",
+            handler = handle_fluid_temperature_variant_click
         }
     },
     on_gui_text_changed = {

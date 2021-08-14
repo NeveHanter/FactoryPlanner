@@ -120,9 +120,33 @@ local function generate_formatted_item(base_item, type)
         proddable_amount = (base_amount - (base_item.catalyst_amount or 0)) * probability
     end
 
+    local max_double = 0X1.FFFFFFFFFFFFFP+1023
+    local min_double = -0X1.FFFFFFFFFFFFFP+1023
+
     -- This will probably screw up the main_product detection down the line
-    if base_item.temperature ~= nil then
-        base_item.name = base_item.name .. "-" .. base_item.temperature
+    local temperature = base_item.temperature
+    local maximum_temperature = base_item.maximum_temperature
+    local minimum_temperature = base_item.minimum_temperature
+    local temperature_string
+    if temperature ~= nil then
+        temperature_string = temperature
+    elseif maximum_temperature and minimum_temperature then
+        if minimum_temperature == min_double then
+            minimum_temperature = nil
+        end
+        if maximum_temperature == max_double then
+            maximum_temperature = nil
+        end
+        --    if minimum_temperature == min_double then
+        --        temperature_string = "≤" .. maximum_temperature
+        --    elseif maximum_temperature == max_double then
+        --        temperature_string = "≥" .. minimum_temperature
+        --    else
+        --        temperature_string = "" .. minimum_temperature .. "_" .. maximum_temperature
+    end
+
+    if temperature_string ~= nil then
+        base_item.name = base_item.name .. "-" .. temperature_string
     end
 
     return {
@@ -130,7 +154,9 @@ local function generate_formatted_item(base_item, type)
         type = base_item.type,
         amount = (base_amount * probability),
         proddable_amount = proddable_amount,
-        temperature = base_item.temperature
+        temperature = temperature,
+        maximum_temperature = maximum_temperature,
+        minimum_temperature = minimum_temperature
     }
 end
 

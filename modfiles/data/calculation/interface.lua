@@ -83,6 +83,7 @@ local function generate_floor_data(player, subfactory, floor)
                 set_blank_line(player, floor, line)
             else
                 line_data.recipe_proto = line.recipe.proto  -- reference
+                line_data.ingredient_variants = line.ingredient_variants  -- reference
                 line_data.timescale = subfactory.timescale
                 line_data.percentage = line.percentage  -- non-zero
                 line_data.production_type = line.recipe.production_type

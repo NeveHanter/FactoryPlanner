@@ -288,7 +288,10 @@ function builders.byproducts(line, parent_flow, metadata)
 end
 
 function builders.ingredients(line, parent_flow, metadata)
+    local ingredient_variants = line.ingredient_variants
     for _, ingredient in ipairs(Line.get_in_order(line, "Ingredient")) do
+        local proto = ingredient.proto
+
         -- items/s/machine does not make sense for lines with subfloors, show items/s instead
         local machine_count = (not line.subfloor) and line.machine.count or nil
         local amount, number_tooltip = view_state.process_item(metadata.view_state_metadata,
@@ -299,7 +302,7 @@ function builders.ingredients(line, parent_flow, metadata)
         local satisfaction_line, indication_string = "", ""
         local tutorial_tooltip = metadata.ingredient_tutorial_tooltip
 
-        if ingredient.proto.type == "entity" then
+        if proto.type == "entity" then
             style = "flib_slot_button_default_small"
             enabled = (not metadata.matrix_solver_active)
             indication_string = {"fp.indication", {"fp.raw_ore"}}
@@ -320,9 +323,34 @@ function builders.ingredients(line, parent_flow, metadata)
             satisfaction_line = {"fp.newline", {"fp.two_word_title", (formatted_percentage .. "%"), {"fp.satisfied"}}}
         end
 
-        local name_line = {"fp.two_word_title", ingredient.proto.localised_name, indication_string}
+        local variant_proto = ingredient_variants[ingredient.name]
+
+        local name_line = {"fp.two_word_title", (variant_proto or proto).localised_name, indication_string}
         local number_line = (number_tooltip) and {"fp.newline", number_tooltip} or ""
         local tooltip = {"", name_line, number_line, satisfaction_line, tutorial_tooltip}
+
+        -- Configure selection button for fluids with temperature variants
+        if not line.subfloor and proto.temperature == nil and proto.type == "fluid" then
+            local temperature_variants = TEMPERATURE_VARIANTS[proto.name]
+            if temperature_variants ~= nil then
+                parent_flow.add {
+                    type="sprite-button",
+                    tags={
+                        mod="fp",
+                        on_gui_click="act_on_line_fluid_temperature_variant",
+                        line_id=line.id,
+                        proto=proto
+                    },
+                    sprite=(variant_proto or proto).sprite,
+                    style="flib_slot_button_cyan_small",
+                    number=amount,
+                    tooltip=tooltip,
+                    mouse_button_filter={"left-and-right"}
+                }
+
+                goto skip_ingredient
+            end
+        end
 
         parent_flow.add{type="sprite-button", tags={mod="fp", on_gui_click="act_on_line_item", line_id=line.id,
           class="Ingredient", item_id=ingredient.id}, sprite=ingredient.proto.sprite, style=style, number=amount,

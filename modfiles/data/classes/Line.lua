@@ -1,4 +1,13 @@
 -- 'Class' representing an assembly line producing a recipe or representing a subfloor
+---@class Line
+---@field public recipe LuaRecipe
+---@field public active bool
+---@field public done bool
+---@field public percentage number
+---@field public beacon Beacon
+---@field public Product Collection
+---@field public Byproduct Collection
+---@field public Ingredient Collection
 Line = {}
 
 function Line.init(recipe)
@@ -10,6 +19,7 @@ function Line.init(recipe)
         done = false,
         percentage = (is_standalone_line) and 100 or nil,
         machine = nil,
+        ingredient_variants = {},
         beacon = nil,
         total_effects = nil,  -- initialized after a machine is set
         energy_consumption = 0,

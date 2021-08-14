@@ -594,7 +594,16 @@ function matrix_solver.get_line_aggregate(line_data, player_index, floor_id, mac
         if ingredient.ignore_productivity then
             amount = calculation.util.determine_prodded_amount(ingredient, unmodified_crafts_per_second, total_effects)
         end
-        structures.aggregate.add(line_aggregate, "Ingredient", ingredient, amount * total_crafts_per_timescale)
+
+        local ingredient_variant = line_data.ingredient_variants[ingredient.name]
+
+        local real_ingredient = ingredient
+        if ingredient_variant ~= nil then
+            real_ingredient = util.table.deepcopy(ingredient)
+            real_ingredient.name = ingredient_variant.name
+        end
+
+        structures.aggregate.add(line_aggregate, "Ingredient", real_ingredient, amount * total_crafts_per_timescale)
     end
 
     -- Determine energy consumption (including potential fuel needs) and pollution

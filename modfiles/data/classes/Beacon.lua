@@ -1,4 +1,5 @@
 -- This is a 'class' representing a (group of) beacon(s) and the modules attached to it
+---@class Beacon
 Beacon = {}
 
 -- Init a beacon without a module, which will have to be added afterwards
